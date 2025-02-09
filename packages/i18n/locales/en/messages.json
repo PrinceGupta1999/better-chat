@@ -1,30 +1,43 @@
 {
   "extensionDescription": {
     "description": "Extension description",
-    "message": "Chrome extension boilerplate developed with Vite, React and Typescript"
+    "message": "Customize your Google Chat™ Home timeline with filters for different kinds of chats including Direct Messages, Spaces, @all mentions, and more."
   },
   "extensionName": {
     "description": "Extension name",
-    "message": "Chrome extension boilerplate"
-  },
-  "toggleTheme": {
-    "message": "Toggle theme"
+    "message": "Better Google Chat™ Home"
   },
   "loading": {
     "message": "Loading..."
   },
-  "greeting": {
-    "description": "Greeting message",
-    "message": "Hello, My name is $NAME$",
-    "placeholders": {
-      "name": {
-        "content": "$1",
-        "example": "John Doe"
-      }
-    }
+  "homeChatScrollPad": {
+    "message": "Scroll to view more chats"
   },
-  "hello": {
-    "description": "Placeholder example",
-    "message": "Hello $1"
+  "homeChatPreferences": {
+    "message": "Home Chat Preferences"
+  },
+  "directMessages": {
+    "message": "Direct Messages"
+  },
+  "dmGroup": {
+    "message": "Group"
+  },
+  "dmSingle": {
+    "message": "Single"
+  },
+  "spaces": {
+    "message": "Spaces"
+  },
+  "spaceAllMention": {
+    "message": "All Mention"
+  },
+  "spaceFollowing": {
+    "message": "Following"
+  },
+  "spaceOther": {
+    "message": "Others"
+  },
+  "error": {
+    "message": "Error Occur"
   }
 }
