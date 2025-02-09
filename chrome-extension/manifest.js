@@ -39,7 +39,7 @@ const manifest = withSidePanel({
   name: '__MSG_extensionName__',
   version: packageJson.version,
   description: '__MSG_extensionDescription__',
-  host_permissions: ['https://chat.google.com/*', 'https://mail.google.com/*'],
+  // host_permissions: ['https://chat.google.com/*', 'https://mail.google.com/*'],
   permissions: ['storage'],
   // options_page: 'options/index.html',
   // background: {
