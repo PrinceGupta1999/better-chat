@@ -4,19 +4,23 @@ import { t } from '@extension/i18n';
 
 const HOME_CHAT_CONTAINER_SELECTOR =
   "[role='region'] [role='list'] > span[id^='space/'], [role='region'] [role='list'] > span[id^='dm/']";
+const MENTION_CHAT_CONTAINER_SELECTOR =
+  "[role='region'] > [role='link']:has([data-group-id^='space/'], [data-group-id^='dm/'])";
+const CHAT_CONTAINER_SELECTOR = `${HOME_CHAT_CONTAINER_SELECTOR}, ${MENTION_CHAT_CONTAINER_SELECTOR}`;
+const CHAT_GROUP_ID_SELECTOR = "[data-group-id^='space/'], [data-group-id^='dm/']";
 const PAD_ELEMENT_ID = 'chat-scroll-pad';
 
-const getHomeChats = () => Array.from(document.querySelectorAll<HTMLElement>(HOME_CHAT_CONTAINER_SELECTOR));
+const getChats = () => Array.from(document.querySelectorAll<HTMLElement>(CHAT_CONTAINER_SELECTOR));
 
-const applyHomeChatPreference = (preference: HomeChatPreference) => {
-  const chats = getHomeChats();
+const applyChatPreference = (preference: HomeChatPreference) => {
+  const chats = getChats();
   chats.forEach(chat => {
-    processHomeChat(chat, preference);
+    processChat(chat, preference);
   });
 };
 
-const processHomeChat = (chat: HTMLElement, preference: HomeChatPreference) => {
-  const type = classifyHomeChat(chat);
+const processChat = (chat: HTMLElement, preference: HomeChatPreference) => {
+  const type = classifyChat(chat);
   if (preference[type]) {
     chat.style.removeProperty('display');
   } else {
@@ -37,9 +41,17 @@ const FOLLOWING_SELECTOR = [
   `path[d="${UNREAD_FOLLOWING_SVG_PATH}"]`,
 ].join(', ');
 
-const classifyHomeChat = (chat: HTMLElement): HomeChatType => {
+const getChatIdentifier = (chat: HTMLElement) =>
+  chat.id ||
+  chat.getAttribute('data-group-id') ||
+  chat.querySelector(CHAT_GROUP_ID_SELECTOR)?.getAttribute('data-group-id') ||
+  '';
+
+const classifyChat = (chat: HTMLElement): HomeChatType => {
+  const chatIdentifier = getChatIdentifier(chat);
+
   // DMs
-  if (chat.id.startsWith('dm/')) {
+  if (chatIdentifier.startsWith('dm/')) {
     return 'dmSingle';
   }
   if (chat.querySelectorAll('img').length > 1) {
@@ -70,13 +82,13 @@ const isSupportedChatContext = () => {
   );
 };
 
-const getAffectedHomeChats = (node: Node) => {
+const getAffectedChats = (node: Node) => {
   if (!(node instanceof Element)) return [];
 
   const chats = new Set<HTMLElement>();
-  const containingChat = node.closest<HTMLElement>(HOME_CHAT_CONTAINER_SELECTOR);
+  const containingChat = node.closest<HTMLElement>(CHAT_CONTAINER_SELECTOR);
   if (containingChat) chats.add(containingChat);
-  node.querySelectorAll<HTMLElement>(HOME_CHAT_CONTAINER_SELECTOR).forEach(chat => chats.add(chat));
+  node.querySelectorAll<HTMLElement>(CHAT_CONTAINER_SELECTOR).forEach(chat => chats.add(chat));
   return Array.from(chats);
 };
 
@@ -90,7 +102,7 @@ const getHomeScrollContainer = (chatList: HTMLElement) => {
   return null;
 };
 
-const getHomeChatLayout = (chats: HTMLElement[]) => {
+const getChatLayout = (chats: HTMLElement[]) => {
   const chatList = chats[0]?.parentElement;
   const spacerParent = chatList?.parentElement;
   if (!chatList || !spacerParent) return null;
@@ -110,7 +122,7 @@ const removeScrollPad = () => {
 
 const showScrollPad = (chats: HTMLElement[]) => {
   removeScrollPad();
-  const layout = getHomeChatLayout(chats);
+  const layout = getChatLayout(chats);
   if (!layout || isFirstFoldFilled(layout.chatList, layout.scrollContainer)) return;
 
   const chatListHeight = layout.chatList.getBoundingClientRect().height;
@@ -126,20 +138,20 @@ const initialize = async () => {
 
   let preference = await homeChatPreferenceStorage.get();
 
-  applyHomeChatPreference(preference);
-  showScrollPad(getHomeChats());
+  applyChatPreference(preference);
+  showScrollPad(getChats());
 
   const observer = new MutationObserver(mutations => {
     const affectedChats = new Set<HTMLElement>();
     mutations.forEach(mutation => {
       mutation.addedNodes.forEach(node => {
-        getAffectedHomeChats(node).forEach(chat => affectedChats.add(chat));
+        getAffectedChats(node).forEach(chat => affectedChats.add(chat));
       });
     });
 
     if (!affectedChats.size) return;
-    affectedChats.forEach(chat => processHomeChat(chat, preference));
-    showScrollPad(getHomeChats());
+    affectedChats.forEach(chat => processChat(chat, preference));
+    showScrollPad(getChats());
   });
   observer.observe(document.body, {
     childList: true,
@@ -148,8 +160,8 @@ const initialize = async () => {
 
   homeChatPreferenceStorage.subscribe(async () => {
     preference = await homeChatPreferenceStorage.get();
-    applyHomeChatPreference(preference);
-    showScrollPad(getHomeChats());
+    applyChatPreference(preference);
+    showScrollPad(getChats());
   });
 };
 
