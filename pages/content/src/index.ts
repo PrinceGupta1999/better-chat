@@ -4,11 +4,7 @@ import { t } from '@extension/i18n';
 
 const HOME_CHAT_CONTAINER_SELECTOR =
   "[role='region'] [role='list'] > span[id^='space/'], [role='region'] [role='list'] > span[id^='dm/']";
-const AUTO_LOAD_SPACER_ID = 'chat-auto-load-spacer';
 const PAD_ELEMENT_ID = 'chat-scroll-pad';
-const AUTO_LOAD_MAX_ATTEMPTS = 3;
-const AUTO_LOAD_SETTLE_MS = 500;
-const AUTO_LOAD_TIMEOUT_MS = 1_200;
 
 const getHomeChats = () => Array.from(document.querySelectorAll<HTMLElement>(HOME_CHAT_CONTAINER_SELECTOR));
 
@@ -108,13 +104,12 @@ const getHomeChatLayout = (chats: HTMLElement[]) => {
 const isFirstFoldFilled = (chatList: HTMLElement, scrollContainer: HTMLElement) =>
   chatList.getBoundingClientRect().height >= scrollContainer.clientHeight;
 
-const removeLoadingElements = () => {
-  document.getElementById(AUTO_LOAD_SPACER_ID)?.remove();
+const removeScrollPad = () => {
   document.getElementById(PAD_ELEMENT_ID)?.remove();
 };
 
 const showScrollPad = (chats: HTMLElement[]) => {
-  removeLoadingElements();
+  removeScrollPad();
   const layout = getHomeChatLayout(chats);
   if (!layout || isFirstFoldFilled(layout.chatList, layout.scrollContainer)) return;
 
@@ -126,99 +121,13 @@ const showScrollPad = (chats: HTMLElement[]) => {
   layout.spacerParent.appendChild(padElement);
 };
 
-const waitForAnimationFrame = () => new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()));
-const waitForTimeout = (timeoutMs: number) => new Promise<void>(resolve => window.setTimeout(resolve, timeoutMs));
-
-const waitForMoreHomeChats = (previousCount: number) =>
-  new Promise<boolean>(resolve => {
-    const observer = new MutationObserver(() => {
-      if (getHomeChats().length > previousCount) finish(true);
-    });
-    const timeoutId = window.setTimeout(() => finish(false), AUTO_LOAD_TIMEOUT_MS);
-
-    function finish(didLoad: boolean) {
-      window.clearTimeout(timeoutId);
-      observer.disconnect();
-      resolve(didLoad);
-    }
-
-    observer.observe(document.body, { childList: true, subtree: true });
-  });
-
-const attemptAutomaticLoad = async (chats: HTMLElement[]) => {
-  const layout = getHomeChatLayout(chats);
-  if (!layout) return false;
-
-  removeLoadingElements();
-  const spacer = document.createElement('div');
-  spacer.id = AUTO_LOAD_SPACER_ID;
-  spacer.setAttribute('aria-hidden', 'true');
-  spacer.style.height = `${layout.scrollContainer.clientHeight}px`;
-  spacer.style.pointerEvents = 'none';
-
-  const previousScrollTop = layout.scrollContainer.scrollTop;
-  const previousScrollBehavior = layout.scrollContainer.style.scrollBehavior;
-  const moreChatsPromise = waitForMoreHomeChats(chats.length);
-
-  try {
-    layout.spacerParent.appendChild(spacer);
-    await waitForAnimationFrame();
-    layout.scrollContainer.style.scrollBehavior = 'auto';
-    layout.scrollContainer.scrollTop = layout.scrollContainer.scrollHeight;
-    return await moreChatsPromise;
-  } finally {
-    spacer.remove();
-    layout.scrollContainer.scrollTop = previousScrollTop;
-    layout.scrollContainer.style.scrollBehavior = previousScrollBehavior;
-  }
-};
-
-const fillHomeFirstFold = async (getPreference: () => HomeChatPreference) => {
-  await waitForTimeout(AUTO_LOAD_SETTLE_MS);
-
-  for (let attempt = 0; attempt < AUTO_LOAD_MAX_ATTEMPTS; attempt += 1) {
-    const chats = getHomeChats();
-    const layout = getHomeChatLayout(chats);
-    if (!layout) return;
-
-    chats.forEach(chat => processHomeChat(chat, getPreference()));
-    if (isFirstFoldFilled(layout.chatList, layout.scrollContainer)) {
-      removeLoadingElements();
-      return;
-    }
-
-    if (!(await attemptAutomaticLoad(chats))) break;
-  }
-
-  const chats = getHomeChats();
-  chats.forEach(chat => processHomeChat(chat, getPreference()));
-  showScrollPad(chats);
-};
-
 const initialize = async () => {
   if (!isSupportedChatContext()) return;
 
   let preference = await homeChatPreferenceStorage.get();
-  let autoFillPromise: Promise<void> | null = null;
-  let autoFillQueued = false;
-  let lastAutoFillList: HTMLElement | null = null;
-  const scheduleAutoFill = () => {
-    autoFillQueued = true;
-    if (autoFillPromise) return;
-
-    autoFillPromise = (async () => {
-      while (autoFillQueued) {
-        autoFillQueued = false;
-        lastAutoFillList = getHomeChats()[0]?.parentElement ?? null;
-        await fillHomeFirstFold(() => preference);
-      }
-    })().finally(() => {
-      autoFillPromise = null;
-    });
-  };
 
   applyHomeChatPreference(preference);
-  if (getHomeChats().length) scheduleAutoFill();
+  showScrollPad(getHomeChats());
 
   const observer = new MutationObserver(mutations => {
     const affectedChats = new Set<HTMLElement>();
@@ -230,13 +139,7 @@ const initialize = async () => {
 
     if (!affectedChats.size) return;
     affectedChats.forEach(chat => processHomeChat(chat, preference));
-    const chats = getHomeChats();
-    const chatList = chats[0]?.parentElement ?? null;
-    if (chatList && chatList !== lastAutoFillList) {
-      scheduleAutoFill();
-    } else {
-      showScrollPad(chats);
-    }
+    showScrollPad(getHomeChats());
   });
   observer.observe(document.body, {
     childList: true,
@@ -246,7 +149,7 @@ const initialize = async () => {
   homeChatPreferenceStorage.subscribe(async () => {
     preference = await homeChatPreferenceStorage.get();
     applyHomeChatPreference(preference);
-    if (getHomeChats().length) scheduleAutoFill();
+    showScrollPad(getHomeChats());
   });
 };
 
