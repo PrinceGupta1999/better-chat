@@ -27,7 +27,7 @@ const Popup = () => {
         </div>
 
         <div className="space-y-1">
-          <Typography variant="h6">{t('directMessages')}</Typography>
+          <Typography variant="h6">{t('spaces')}</Typography>
           <div>
             {(['spaceFollowing', 'spaceAllMention', 'spaceOther'] satisfies HomeChatType[]).map(type => (
               <div className="flex items-center justify-between" key={type}>
