@@ -2,7 +2,6 @@ import { config as baseConfig } from './wdio.conf';
 import path from 'node:path';
 import url from 'node:url';
 import fs from 'node:fs/promises';
-import { getChromeExtensionPath, getFirefoxExtensionPath } from '../utils/extension-path';
 
 const isFirefox = process.env.__FIREFOX__ === 'true';
 const isCI = process.env.CI === 'true';
@@ -50,10 +49,6 @@ export const config: WebdriverIO.Config = {
   before: async ({ browserName }: WebdriverIO.Capabilities, _specs, browser: WebdriverIO.Browser) => {
     if (browserName === 'firefox') {
       await browser.installAddOn(bundledExtension, true);
-
-      browser.addCommand('getExtensionPath', async () => getFirefoxExtensionPath(browser));
-    } else if (browserName === 'chrome') {
-      browser.addCommand('getExtensionPath', async () => getChromeExtensionPath(browser));
     }
   },
   afterTest: async () => {
