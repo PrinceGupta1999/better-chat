@@ -92,8 +92,8 @@ const getAffectedChats = (node: Node) => {
   return Array.from(chats);
 };
 
-const getHomeScrollContainer = (chatList: HTMLElement) => {
-  let element = chatList.parentElement;
+const getScrollContainer = (chatList: HTMLElement) => {
+  let element: HTMLElement | null = chatList;
   while (element) {
     const overflowY = window.getComputedStyle(element).overflowY;
     if ((overflowY === 'auto' || overflowY === 'scroll') && element.clientHeight > 0) return element;
@@ -104,17 +104,24 @@ const getHomeScrollContainer = (chatList: HTMLElement) => {
 
 const getChatLayout = (chats: HTMLElement[]) => {
   const chatList = chats[0]?.parentElement;
-  const spacerParent = chatList?.parentElement;
-  if (!chatList || !spacerParent) return null;
+  if (!chatList) return null;
 
-  const scrollContainer = getHomeScrollContainer(chatList);
+  const scrollContainer = getScrollContainer(chatList);
   if (!scrollContainer) return null;
+
+  const spacerParent = scrollContainer === chatList ? chatList : chatList.parentElement;
+  if (!spacerParent) return null;
 
   return { chatList, scrollContainer, spacerParent };
 };
 
-const isFirstFoldFilled = (chatList: HTMLElement, scrollContainer: HTMLElement) =>
-  chatList.getBoundingClientRect().height >= scrollContainer.clientHeight;
+const getVisibleChatContentHeight = (chats: HTMLElement[], scrollContainer: HTMLElement) => {
+  const lastVisibleChat = chats.findLast(chat => window.getComputedStyle(chat).display !== 'none');
+  if (!lastVisibleChat) return 0;
+
+  const scrollContainerTop = scrollContainer.getBoundingClientRect().top;
+  return lastVisibleChat.getBoundingClientRect().bottom - scrollContainerTop + scrollContainer.scrollTop;
+};
 
 const removeScrollPad = () => {
   document.getElementById(PAD_ELEMENT_ID)?.remove();
@@ -123,13 +130,21 @@ const removeScrollPad = () => {
 const showScrollPad = (chats: HTMLElement[]) => {
   removeScrollPad();
   const layout = getChatLayout(chats);
-  if (!layout || isFirstFoldFilled(layout.chatList, layout.scrollContainer)) return;
+  if (!layout) return;
 
-  const chatListHeight = layout.chatList.getBoundingClientRect().height;
+  const chatContentHeight = getVisibleChatContentHeight(chats, layout.scrollContainer);
+  if (chatContentHeight >= layout.scrollContainer.clientHeight) return;
+
   const padElement = document.createElement('div');
   padElement.id = PAD_ELEMENT_ID;
   padElement.textContent = t('homeChatScrollPad');
-  padElement.style.height = `${window.innerHeight + 100 - chatListHeight}px`;
+  padElement.style.boxSizing = 'border-box';
+  padElement.style.height = `${Math.ceil(layout.scrollContainer.clientHeight + 100 - chatContentHeight)}px`;
+  padElement.style.flexShrink = '0';
+  padElement.style.padding = '16px';
+  padElement.style.textAlign = 'center';
+  padElement.style.backgroundColor = '#eeeeee';
+  padElement.style.color = '#666666';
   layout.spacerParent.appendChild(padElement);
 };
 
