@@ -40,6 +40,13 @@ const FOLLOWING_SELECTOR = [
   `path[d="${READ_FOLLOWING_SVG_PATH}"]`,
   `path[d="${UNREAD_FOLLOWING_SVG_PATH}"]`,
 ].join(', ');
+const FOLLOWING_MATERIAL_ICON_NAMES = new Set(['spool', 'spool_unread']);
+
+const hasFollowingMarker = (chat: HTMLElement) =>
+  Boolean(chat.querySelector(FOLLOWING_SELECTOR)) ||
+  Array.from(chat.querySelectorAll<HTMLElement>('[aria-hidden="true"]')).some(element =>
+    FOLLOWING_MATERIAL_ICON_NAMES.has(element.textContent?.trim() ?? ''),
+  );
 
 const getChatIdentifier = (chat: HTMLElement) =>
   chat.id ||
@@ -61,7 +68,7 @@ const classifyChat = (chat: HTMLElement): HomeChatType => {
   if (chat.querySelector('[data-display-name="@all"], [aria-label="@all"]')) {
     return 'spaceAllMention';
   }
-  if (chat.querySelector(FOLLOWING_SELECTOR)) {
+  if (hasFollowingMarker(chat)) {
     return 'spaceFollowing';
   }
   return 'spaceOther';
@@ -83,12 +90,13 @@ const isSupportedChatContext = () => {
 };
 
 const getAffectedChats = (node: Node) => {
-  if (!(node instanceof Element)) return [];
+  const element = node instanceof Element ? node : node.parentElement;
+  if (!element) return [];
 
   const chats = new Set<HTMLElement>();
-  const containingChat = node.closest<HTMLElement>(CHAT_CONTAINER_SELECTOR);
+  const containingChat = element.closest<HTMLElement>(CHAT_CONTAINER_SELECTOR);
   if (containingChat) chats.add(containingChat);
-  node.querySelectorAll<HTMLElement>(CHAT_CONTAINER_SELECTOR).forEach(chat => chats.add(chat));
+  element.querySelectorAll<HTMLElement>(CHAT_CONTAINER_SELECTOR).forEach(chat => chats.add(chat));
   return Array.from(chats);
 };
 
