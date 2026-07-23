@@ -42,11 +42,23 @@ const FOLLOWING_SELECTOR = [
 ].join(', ');
 const FOLLOWING_MATERIAL_ICON_NAMES = new Set(['spool', 'spool_unread']);
 
+const hasExactLeafText = (chat: HTMLElement, text: string) =>
+  Array.from(chat.querySelectorAll<HTMLElement>('span')).some(
+    element => element.children.length === 0 && element.textContent?.trim() === text,
+  );
+
 const hasFollowingMarker = (chat: HTMLElement) =>
+  chat.hasAttribute('data-topic-id') ||
+  Boolean(chat.querySelector('[data-topic-id]')) ||
+  (hasExactLeafText(chat, 'Latest reply') && hasExactLeafText(chat, 'Message')) ||
   Boolean(chat.querySelector(FOLLOWING_SELECTOR)) ||
   Array.from(chat.querySelectorAll<HTMLElement>('[aria-hidden="true"]')).some(element =>
     FOLLOWING_MATERIAL_ICON_NAMES.has(element.textContent?.trim() ?? ''),
   );
+
+const hasAllMention = (chat: HTMLElement) =>
+  Boolean(chat.querySelector('[data-display-name="@all"], [aria-label="@all"]')) ||
+  /(^|[^\w])@all\b/i.test(chat.textContent ?? '');
 
 const getChatIdentifier = (chat: HTMLElement) =>
   chat.id ||
@@ -65,7 +77,7 @@ const classifyChat = (chat: HTMLElement): HomeChatType => {
     return 'dmGroup';
   }
   // Spaces
-  if (chat.querySelector('[data-display-name="@all"], [aria-label="@all"]')) {
+  if (hasAllMention(chat)) {
     return 'spaceAllMention';
   }
   if (hasFollowingMarker(chat)) {
@@ -167,7 +179,8 @@ const initialize = async () => {
   const observer = new MutationObserver(mutations => {
     const affectedChats = new Set<HTMLElement>();
     mutations.forEach(mutation => {
-      mutation.addedNodes.forEach(node => {
+      const affectedNodes = mutation.type === 'childList' ? mutation.addedNodes : [mutation.target];
+      affectedNodes.forEach(node => {
         getAffectedChats(node).forEach(chat => affectedChats.add(chat));
       });
     });
@@ -177,6 +190,9 @@ const initialize = async () => {
     showScrollPad(getChats());
   });
   observer.observe(document.body, {
+    attributeFilter: ['aria-label', 'data-display-name', 'data-topic-id'],
+    attributes: true,
+    characterData: true,
     childList: true,
     subtree: true,
   });
